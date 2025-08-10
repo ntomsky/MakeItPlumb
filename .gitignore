@@ -73,3 +73,9 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Environment Variables (contains API keys - never commit!)
+.env
+.env.local
+.env.production
+.env.development
