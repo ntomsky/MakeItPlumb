@@ -331,7 +331,7 @@ export class PdfService {
     const fileName = `${docType}_${doc.number.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
     const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
     
-    await RNFS.writeFile(filePath, Buffer.from(pdfBytes).toString('base64'), 'base64');
+    await RNFS.writeFile(filePath, Uint8Array.from(pdfBytes).toString(), 'ascii');
     
     return {
       path: filePath,

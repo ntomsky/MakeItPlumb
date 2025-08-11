@@ -16,6 +16,7 @@ import { QuoteDetailScreen } from '../features/quotes/QuoteDetailScreen';
 import { InvoicesListScreen } from '../features/invoices/InvoicesListScreen';
 import { InvoiceEditorScreen } from '../features/invoices/InvoiceEditorScreen';
 import { InvoiceDetailScreen } from '../features/invoices/InvoiceDetailScreen';
+import { VoiceTestScreen } from '../screens/VoiceTestScreen';
 
 import { theme } from './theme';
 
@@ -30,6 +31,7 @@ export type RootTabParamList = {
 export type HomeStackParamList = {
   Home: undefined;
   Settings: undefined;
+  VoiceTest: undefined;
 };
 
 export type CustomersStackParamList = {
@@ -68,6 +70,11 @@ function HomeStackNavigator() {
         name="Settings" 
         component={SettingsScreen}
         options={{ title: 'Settings' }}
+      />
+      <HomeStack.Screen 
+        name="VoiceTest" 
+        component={VoiceTestScreen}
+        options={{ title: 'Voice AI Test' }}
       />
     </HomeStack.Navigator>
   );

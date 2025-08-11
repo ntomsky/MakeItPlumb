@@ -75,6 +75,10 @@ export const HomeScreen: React.FC = () => {
     navigation.navigate('Settings');
   };
 
+  const handleVoiceTest = () => {
+    navigation.navigate('VoiceTest');
+  };
+
   return (
     <>
       <ScrollView style={styles.container}>
@@ -130,6 +134,12 @@ export const HomeScreen: React.FC = () => {
             <Icon name="person-add" size={32} color={theme.colors.warning} />
             <Text style={styles.actionTitle}>Add Customer</Text>
             <Text style={styles.actionSubtitle}>New customer</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.actionCard} onPress={handleVoiceTest}>
+            <Icon name="smart-toy" size={32} color="#9C27B0" />
+            <Text style={styles.actionTitle}>Voice AI Test</Text>
+            <Text style={styles.actionSubtitle}>Test Claude 3.5</Text>
           </TouchableOpacity>
         </View>
       </View>

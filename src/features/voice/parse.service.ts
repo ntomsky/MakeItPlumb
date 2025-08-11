@@ -1,4 +1,9 @@
-import { DraftIntake, LineItem } from '../../types/domain';
+import { DraftIntake, LineItem, UUID } from '../../types/domain';
+
+// Simple UUID generator for line items
+const generateId = (): UUID => {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
 
 export class ParseService {
   /**
@@ -123,7 +128,7 @@ export class ParseService {
       const qty = parseFloat(match[1]);
       const rate = parseFloat(match[2]);
       items.push({
-        id: uuidv4() as string,
+        id: generateId(),
         qty,
         description: 'Labor',
         unitPrice: rate,
@@ -152,7 +157,7 @@ export class ParseService {
         }
         
         items.push({
-          id: uuidv4() as string,
+          id: generateId(),
           qty: 1,
           description,
           unitPrice: price,
@@ -166,7 +171,7 @@ export class ParseService {
     if (items.length === 0 && amounts.length > 0) {
       amounts.forEach((amount, index) => {
         items.push({
-          id: uuidv4() as string,
+          id: generateId(),
           qty: 1,
           description: `Item ${index + 1}`,
           unitPrice: amount,
@@ -233,8 +238,5 @@ export class ParseService {
       word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     );
   }
-}
-function uuidv4(): string {
-    throw new Error('Function not implemented.');
 }
 

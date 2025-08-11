@@ -94,6 +94,7 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
       const draft = await ParseService.toDraft(transcript);
       dispatch(setParsedDraft(draft));
     } catch (error) {
+      console.error( error);
       dispatch(setError('Failed to process voice input'));
     }
   };
