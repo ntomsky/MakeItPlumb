@@ -126,6 +126,72 @@ export const EditCustomerScreen: React.FC = () => {
     JSON.stringify(existingCustomer?.serviceAddress) === JSON.stringify(existingCustomer?.billingAddress)
   );
 
+  // Reset form data when route params change (e.g., when navigating between voice input and regular add)
+  React.useEffect(() => {
+    const resetFormData = () => {
+      // If editing existing customer, use existing data
+      if (existingCustomer) {
+        return {
+          name: existingCustomer.name || '',
+          phone: existingCustomer.phone || '',
+          email: existingCustomer.email || '',
+          notes: existingCustomer.notes || '',
+          serviceAddress: {
+            line1: existingCustomer.serviceAddress?.line1 || '',
+            line2: existingCustomer.serviceAddress?.line2 || '',
+            city: existingCustomer.serviceAddress?.city || '',
+            state: existingCustomer.serviceAddress?.state || '',
+            zip: existingCustomer.serviceAddress?.zip || '',
+          },
+          billingAddress: {
+            line1: existingCustomer.billingAddress?.line1 || '',
+            line2: existingCustomer.billingAddress?.line2 || '',
+            city: existingCustomer.billingAddress?.city || '',
+            state: existingCustomer.billingAddress?.state || '',
+            zip: existingCustomer.billingAddress?.zip || '',
+          },
+        };
+      }
+      
+      // If creating new customer from voice input, pre-fill with parsed data
+      if (intentResult?.result.entities) {
+        const { customer, address } = intentResult.result.entities;
+        return {
+          name: customer?.name || '',
+          phone: customer?.phone || '',
+          email: customer?.email || '',
+          notes: intentResult.result.rawTranscript ? `Voice input: "${intentResult.result.rawTranscript}"` : '',
+          serviceAddress: {
+            line1: address?.line1 || '',
+            line2: address?.line2 || '',
+            city: address?.city || '',
+            state: address?.state || '',
+            zip: address?.zip || '',
+          },
+          billingAddress: {
+            line1: address?.line1 || '',
+            line2: address?.line2 || '',
+            city: address?.city || '',
+            state: address?.state || '',
+            zip: address?.zip || '',
+          },
+        };
+      }
+      
+      // Default empty form
+      return {
+        name: '',
+        phone: '',
+        email: '',
+        notes: '',
+        serviceAddress: { line1: '', line2: '', city: '', state: '', zip: '' },
+        billingAddress: { line1: '', line2: '', city: '', state: '', zip: '' },
+      };
+    };
+
+    setFormData(resetFormData());
+  }, [existingCustomer?.id, intentResult]); // Re-run when customer ID or entire intent changes
+
   // Update form data
   const updateField = (field: keyof CustomerFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -233,6 +299,7 @@ export const EditCustomerScreen: React.FC = () => {
         dispatch(addCustomer(customer));
       }
 
+      // Use goBack to return to previous screen, which should be CustomersList
       navigation.goBack();
     } catch (error) {
       Alert.alert('Error', 'Failed to save customer. Please try again.');
