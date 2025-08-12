@@ -1,23 +1,33 @@
 import { IntentResult, IntentType, VoiceParsingResult, ConfidenceGates } from '../types/voice-intent';
 import { ClaudeParseService } from '../features/voice/claude-parse.service';
 
-export class VoiceIntentService {
+export class VoiceParsingService {
   /**
    * Main entry point: parse transcript into structured intent result
+   * SINGLE SERVICE FOR ALL VOICE PARSING NEEDS
    */
-  static async parseTranscript(transcript: string): Promise<VoiceParsingResult> {
+  static async parseTranscript(transcript: string, dispatch?: any): Promise<VoiceParsingResult> {
     if (!transcript?.trim()) {
       return this.createErrorResult('Empty transcript provided');
     }
 
     try {
       // Step 1: Heuristic pass for hints
+      if (dispatch) {
+        dispatch({ type: 'voice/setProcessingStage', payload: { stage: 'analyzing', details: 'Extracting patterns and amounts...' } });
+      }
       const heuristics = this.extractHeuristics(transcript);
       
       // Step 2: Claude pass with heuristic hints
-      const intentResult = await this.parseWithClaude(transcript, heuristics);
+      if (dispatch) {
+        dispatch({ type: 'voice/setProcessingStage', payload: { stage: 'enhancing', details: 'Building enhanced prompt with hints...' } });
+      }
+      const intentResult = await this.parseWithClaude(transcript, heuristics, dispatch);
       
       // Step 3: Validate and determine confidence level
+      if (dispatch) {
+        dispatch({ type: 'voice/setProcessingStage', payload: { stage: 'validating', details: 'Calculating confidence and missing fields...' } });
+      }
       const missing = this.findMissingFields(intentResult);
       const confidence = this.calculateConfidence(intentResult, missing);
       
@@ -32,9 +42,56 @@ export class VoiceIntentService {
       };
 
     } catch (error) {
-      console.error('Voice intent parsing error:', error);
-      return this.createErrorResult(error instanceof Error ? error.message : 'Unknown error');
+      console.error('Voice parsing error:', error);
+      
+      // FALLBACK: Try heuristic parsing if LLM fails
+      try {
+        return this.parseWithHeuristics(transcript);
+      } catch (fallbackError) {
+        return this.createErrorResult(error instanceof Error ? error.message : 'Unknown error');
+      }
     }
+  }
+
+  /**
+   * FALLBACK: Parse with heuristics when LLM fails
+   */
+  private static async parseWithHeuristics(transcript: string): Promise<VoiceParsingResult> {
+    // Import heuristic parsing logic dynamically to avoid circular deps
+    const { ParseService } = await import('../features/voice/parse.service');
+    
+    const draftData = await ParseService.toDraft(transcript);
+    const heuristics = this.extractHeuristics(transcript);
+    
+    const intentResult: IntentResult = {
+      intent: this.determineIntent(draftData.docType, heuristics),
+      confidence: 0.4, // Lower confidence for heuristic parsing
+      entities: {
+        customer: draftData.customer?.name ? draftData.customer : undefined,
+        address: draftData.address?.line1 ? draftData.address : undefined,
+        items: draftData.items,
+        discount: draftData.discount,
+        taxRate: draftData.taxRate,
+        notes: draftData.notes
+      },
+      missing: [],
+      normalizedText: transcript,
+      rawTranscript: transcript,
+      processingMethod: 'heuristic'
+    };
+
+    const missing = this.findMissingFields(intentResult);
+    intentResult.missing = missing;
+
+    return {
+      result: intentResult,
+      level: ConfidenceGates.getLevel(intentResult.confidence),
+      actionRequired: ConfidenceGates.getActionRequired(intentResult.confidence, missing),
+      suggestions: [
+        ...this.generateSuggestions(intentResult, missing),
+        'Note: Used fallback parsing - consider improving transcript clarity'
+      ]
+    };
   }
 
   /**
@@ -72,13 +129,21 @@ export class VoiceIntentService {
   /**
    * Parse with Claude using heuristic hints
    */
-  private static async parseWithClaude(transcript: string, heuristics: any): Promise<IntentResult> {
+  private static async parseWithClaude(transcript: string, heuristics: any, dispatch?: any): Promise<IntentResult> {
     const prompt = this.buildIntentPrompt(transcript, heuristics);
+    
+    if (dispatch) {
+      dispatch({ type: 'voice/setProcessingStage', payload: { stage: 'parsing', details: 'Sending request to Claude AI...' } });
+    }
     
     const response = await ClaudeParseService.parseVoiceTranscript(prompt);
     
     if (!response.success) {
       throw new Error(response.error || 'Claude parsing failed');
+    }
+
+    if (dispatch) {
+      dispatch({ type: 'voice/setProcessingStage', payload: { stage: 'classifying', details: 'Processing AI response and classifying intent...' } });
     }
 
     // Convert Claude's response to IntentResult format

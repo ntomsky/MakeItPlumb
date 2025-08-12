@@ -12,14 +12,12 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useSelector } from 'react-redux';
 
 import { theme } from '../../app/theme';
-import { Button } from '../../components/Button';
 import { StatusChip } from '../../components/StatusChip';
 import { VoiceCaptureSheet } from '../voice/VoiceCaptureSheet';
 import { VoiceParsingResult } from '../../types/voice-intent';
 import { selectRecentQuotes } from '../quotes/quotes.slice';
 import { selectRecentInvoices } from '../invoices/invoices.slice';
 import { selectCustomers } from '../customers/customers.slice';
-import { RootState } from '../../store/store';
 
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -120,9 +118,6 @@ export const HomeScreen: React.FC = () => {
     navigation.navigate('Settings');
   };
 
-  const handleVoiceTest = () => {
-    navigation.navigate('VoiceTest');
-  };
 
   return (
     <>
@@ -181,11 +176,6 @@ export const HomeScreen: React.FC = () => {
             <Text style={styles.actionSubtitle}>New customer</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionCard} onPress={handleVoiceTest}>
-            <Icon name="smart-toy" size={32} color="#9C27B0" />
-            <Text style={styles.actionTitle}>Voice AI Test</Text>
-            <Text style={styles.actionSubtitle}>Test Claude 3.5</Text>
-          </TouchableOpacity>
         </View>
       </View>
 

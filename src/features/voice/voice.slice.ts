@@ -2,22 +2,35 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { DraftIntake } from '../../types/domain';
 import { VoiceParsingResult } from '../../types/voice-intent';
 
+type ProcessingStage = 
+  | 'idle'
+  | 'analyzing' 
+  | 'enhancing'
+  | 'parsing'
+  | 'classifying'
+  | 'validating'
+  | 'complete';
+
 interface VoiceState {
   isRecording: boolean;
   isProcessing: boolean;
+  processingStage: ProcessingStage;
+  processingDetails: string;
   transcript: string;
   partialTranscript: string;
   error: string | null;
-  parsedResult: VoiceParsingResult | null; // Changed from parsedDraft
+  parsedResult: VoiceParsingResult | null;
 }
 
 const initialState: VoiceState = {
   isRecording: false,
   isProcessing: false,
+  processingStage: 'idle',
+  processingDetails: '',
   transcript: '',
   partialTranscript: '',
   error: null,
-  parsedResult: null, // Updated
+  parsedResult: null,
 };
 
 const voiceSlice = createSlice({
@@ -43,16 +56,26 @@ const voiceSlice = createSlice({
     },
     startProcessing: (state) => {
       state.isProcessing = true;
+      state.processingStage = 'analyzing';
+      state.processingDetails = 'Analyzing transcript patterns...';
       state.error = null;
     },
+    setProcessingStage: (state, action: PayloadAction<{ stage: ProcessingStage; details: string }>) => {
+      state.processingStage = action.payload.stage;
+      state.processingDetails = action.payload.details;
+    },
     setParsedResult: (state, action: PayloadAction<VoiceParsingResult>) => {
-      state.parsedResult = action.payload; // Updated
+      state.parsedResult = action.payload;
       state.isProcessing = false;
+      state.processingStage = 'complete';
+      state.processingDetails = 'Processing complete!';
     },
     setError: (state, action: PayloadAction<string>) => {
       state.error = action.payload;
       state.isRecording = false;
       state.isProcessing = false;
+      state.processingStage = 'idle';
+      state.processingDetails = '';
     },
     reset: (state) => {
       return initialState;
@@ -66,7 +89,8 @@ export const {
   setPartialTranscript,
   setFinalTranscript,
   startProcessing,
-  setParsedResult, // Updated
+  setProcessingStage,
+  setParsedResult,
   setError,
   reset,
 } = voiceSlice.actions;

@@ -19,13 +19,15 @@ import {
   setPartialTranscript,
   setFinalTranscript,
   startProcessing,
-  setParsedResult, // Updated
+  setProcessingStage,
+  setParsedResult,
   setError,
   reset,
   selectVoiceState,
 } from './voice.slice';
 import { sttService } from './stt.service';
-import { VoiceParsingService } from '../../services/voice-parsing.service';
+import { ParseService } from './parse.service';
+import { VoiceParsingService } from '../../services/voice-intent.service';
 import { VoiceParsingResult } from '../../types/voice-intent';
 
 // Helper function to format intent names for display
@@ -104,11 +106,11 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
     try {
       dispatch(startProcessing());
       
-      // Use VoiceParsingService (optimized)
-      const intentResult = await VoiceParsingService.parseTranscript(transcript);
+      // Use VoiceParsingService (single entry point) with progressive updates
+      const intentResult = await VoiceParsingService.parseTranscript(transcript, dispatch);
       
       // Store the result in Redux
-      dispatch(setParsedResult(intentResult)); // Updated
+      dispatch(setParsedResult(intentResult));
       
     } catch (error) {
       console.error('Voice processing error:', error);
@@ -251,14 +253,41 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
     }
     
     if (voiceState.parsedResult) {
+      const { result } = voiceState.parsedResult;
+      const customer = result.entities.customer;
+      const address = result.entities.address;
+      
+      // Build address string
+      const addressParts = [];
+      if (address?.line1) addressParts.push(address.line1);
+      if (address?.line2) addressParts.push(address.line2);
+      if (address?.city) addressParts.push(address.city);
+      if (address?.state) addressParts.push(address.state);
+      if (address?.zip) addressParts.push(address.zip);
+      
+      const addressString = addressParts.length > 0 ? addressParts.join(', ') : '';
+      
       return (
         <View style={styles.content}>
           <Icon name="check-circle" size={48} color={theme.colors.success} />
           <Text style={styles.successTitle}>Voice Processed!</Text>
           <Text style={styles.draftPreview}>
-            {formatIntentDisplay(voiceState.parsedResult.result.intent)} for{' '}
-            {voiceState.parsedResult.result.entities.customer?.name || 'Customer'}
+            {formatIntentDisplay(result.intent)} for{' '}
+            {customer?.name || 'Customer'}
+            {addressString && (
+              <Text style={styles.addressText}>
+                {'\n'}📍 {addressString}
+              </Text>
+            )}
           </Text>
+          
+          {/* Show original transcript for reference */}
+          {result.rawTranscript && (
+            <Text style={styles.transcriptReference}>
+              Original: "{result.rawTranscript}"
+            </Text>
+          )}
+          
           <View style={styles.actions}>
             <Button title="Use Draft" onPress={handleUseDraft} />
             <Button title="Try Again" onPress={() => dispatch(reset())} variant="outline" />
@@ -271,7 +300,34 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
       return (
         <View style={styles.content}>
           <Icon name="psychology" size={48} color={theme.colors.primary} />
-          <Text style={styles.processingText}>Processing your voice...</Text>
+          <Text style={styles.processingTitle}>Processing Voice...</Text>
+          <Text style={styles.processingStage}>
+            {voiceState.processingDetails || 'Analyzing transcript...'}
+          </Text>
+          
+          {/* Progress Indicators */}
+          <View style={styles.progressContainer}>
+            <View style={[
+              styles.progressDot, 
+              ['analyzing', 'enhancing', 'parsing', 'classifying', 'validating', 'complete'].includes(voiceState.processingStage) && styles.progressDotActive
+            ]} />
+            <View style={[
+              styles.progressDot, 
+              ['enhancing', 'parsing', 'classifying', 'validating', 'complete'].includes(voiceState.processingStage) && styles.progressDotActive
+            ]} />
+            <View style={[
+              styles.progressDot, 
+              ['parsing', 'classifying', 'validating', 'complete'].includes(voiceState.processingStage) && styles.progressDotActive
+            ]} />
+            <View style={[
+              styles.progressDot, 
+              ['classifying', 'validating', 'complete'].includes(voiceState.processingStage) && styles.progressDotActive
+            ]} />
+            <View style={[
+              styles.progressDot, 
+              ['validating', 'complete'].includes(voiceState.processingStage) && styles.progressDotActive
+            ]} />
+          </View>
         </View>
       );
     }
@@ -379,6 +435,35 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginTop: theme.spacing.lg,
   },
+  processingTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+  },
+  processingStage: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.lg,
+  },
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: theme.colors.border,
+    marginHorizontal: theme.spacing.xs,
+  },
+  progressDotActive: {
+    backgroundColor: theme.colors.primary,
+  },
   successTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -402,6 +487,20 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: theme.spacing.md,
+  },
+  addressText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    fontWeight: '500',
+  },
+  transcriptReference: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+    paddingHorizontal: theme.spacing.md,
   },
   recordingArea: {
     alignItems: 'center',
