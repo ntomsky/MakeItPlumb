@@ -23,7 +23,7 @@ import { RootState } from '../../store/store';
 import { InvoicesStackParamList } from '../../app/navigation';
 import { PdfService } from '../../services/pdf.service';
 import { MoneyUtils } from '../../services/money.service';
-import { Customer } from '../../types/domain';
+import { Customer, Invoice, LineItem } from '../../types/domain';
 
 type InvoiceDetailRouteProp = RouteProp<InvoicesStackParamList, 'InvoiceDetail'>;
 
@@ -39,13 +39,13 @@ export const InvoiceDetailScreen: React.FC = () => {
   const [showPdfPreview, setShowPdfPreview] = React.useState(false);
 
   const invoice = useSelector((state: RootState) =>
-    state.invoices.invoices.find(i => i.id === invoiceId)
+    state.invoices.invoices.find((i: Invoice) => i.id === invoiceId)
   );
   
   const businessProfile = useSelector((state: RootState) => state.settings.businessProfile);
   
   const customer = useSelector((state: RootState) =>
-    state.customers.customers.find(c => c.id === invoice?.customerId)
+    state.customers.customers.find((c: Customer) => c.id === invoice?.customerId)
   );
 
   React.useEffect(() => {
@@ -192,7 +192,7 @@ export const InvoiceDetailScreen: React.FC = () => {
       {/* Line Items */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Items</Text>
-        {invoice.items.map((item, index) => (
+        {invoice.items.map((item: LineItem, index: number) => (
           <View key={item.id || index} style={styles.lineItem}>
             <View style={styles.itemHeader}>
               <Text style={styles.itemDescription}>{item.description}</Text>
@@ -250,7 +250,7 @@ export const InvoiceDetailScreen: React.FC = () => {
       {invoice.payments && invoice.payments.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payments</Text>
-          {invoice.payments.map((payment, index) => (
+          {invoice.payments.map((payment: { amount: number; date: string }, index: number) => (
             <View key={index} style={styles.paymentRow}>
               <Text style={styles.paymentDate}>
                 {new Date(payment.date).toLocaleDateString()}

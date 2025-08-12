@@ -331,7 +331,9 @@ export class PdfService {
     const fileName = `${docType}_${doc.number.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
     const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
     
-    await RNFS.writeFile(filePath, Uint8Array.from(pdfBytes).toString(), 'ascii');
+    // Convert PDF bytes to base64 for react-native-fs
+    const base64Data = btoa(String.fromCharCode(...pdfBytes));
+    await RNFS.writeFile(filePath, base64Data, 'base64');
     
     return {
       path: filePath,
