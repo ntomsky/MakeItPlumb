@@ -13,7 +13,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { theme } from '../../app/theme';
 import { TextField } from '../../components/TextField';
 import { Button } from '../../components/Button';
-import { selectFilteredCustomers, setSearchQuery } from './customers.slice';
+import { SwipeableRow } from '../../components/SwipeableRow';
+import { selectFilteredCustomers, setSearchQuery, deleteCustomer } from './customers.slice';
 import { RootState } from '../../store/store';
 import { Customer } from '../../types/domain';
 
@@ -36,29 +37,39 @@ export const CustomersListScreen: React.FC = () => {
     navigation.navigate('EditCustomer');
   };
 
+  const handleDeleteCustomer = (customer: Customer) => {
+    dispatch(deleteCustomer(customer.id));
+  };
+
   const renderCustomerItem = ({ item }: { item: Customer }) => (
-    <TouchableOpacity
-      style={styles.customerItem}
-      onPress={() => handleCustomerPress(item)}
+    <SwipeableRow
+      onDelete={() => handleDeleteCustomer(item)}
+      confirmTitle="Delete Customer"
+      confirmMessage={`Are you sure you want to delete ${item.name}? This action cannot be undone.`}
     >
-      <View style={styles.customerIcon}>
-        <Icon name="person" size={24} color={theme.colors.primary} />
-      </View>
-      <View style={styles.customerInfo}>
-        <Text style={styles.customerName}>{item.name}</Text>
-        <Text style={styles.customerDetails}>
-          {item.phone && `${item.phone} • `}
-          {item.email}
-        </Text>
-        {item.serviceAddress && (
-          <Text style={styles.customerAddress}>
-            {item.serviceAddress.line1}
-            {item.serviceAddress.city && `, ${item.serviceAddress.city}`}
+      <TouchableOpacity
+        style={styles.customerItem}
+        onPress={() => handleCustomerPress(item)}
+      >
+        <View style={styles.customerIcon}>
+          <Icon name="person" size={24} color={theme.colors.primary} />
+        </View>
+        <View style={styles.customerInfo}>
+          <Text style={styles.customerName}>{item.name}</Text>
+          <Text style={styles.customerDetails}>
+            {item.phone && `${item.phone} • `}
+            {item.email}
           </Text>
-        )}
-      </View>
-      <Icon name="chevron-right" size={24} color={theme.colors.textSecondary} />
-    </TouchableOpacity>
+          {item.serviceAddress && (
+            <Text style={styles.customerAddress}>
+              {item.serviceAddress.line1}
+              {item.serviceAddress.city && `, ${item.serviceAddress.city}`}
+            </Text>
+          )}
+        </View>
+        <Icon name="chevron-right" size={24} color={theme.colors.textSecondary} />
+      </TouchableOpacity>
+    </SwipeableRow>
   );
 
   const renderEmptyState = () => (
