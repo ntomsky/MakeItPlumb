@@ -8,7 +8,8 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
-  Linking,
+  Share,
+  Platform,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
@@ -72,25 +73,49 @@ export const InvoiceDetailScreen: React.FC = () => {
     }
   };
 
-  const handleShare = () => {
-    if (pdfUri) {
-      // Open the PDF in the device's default PDF viewer
-      Linking.openURL(pdfUri).catch((error) => {
-        console.error('Failed to open PDF:', error);
-        Alert.alert('Error', 'Unable to open PDF. Please try again.');
-      });
+  const handleShare = async () => {
+    if (pdfUri && invoice) {
+      try {
+        const fileName = `Invoice_${invoice.number}.pdf`;
+        
+        if (Platform.OS === 'ios') {
+          // On iOS, use Share API with file URL
+          await Share.share({
+            url: pdfUri,
+            title: fileName,
+            message: `Invoice ${invoice.number} from ${businessProfile.name}`,
+          });
+        } else {
+          // On Android, Share API works differently
+          await Share.share({
+            title: fileName,
+            message: `Invoice ${invoice.number} from ${businessProfile.name}. PDF path: ${pdfUri}`,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to share PDF:', error);
+        Alert.alert('Error', 'Unable to share PDF. Please try again.');
+      }
     } else {
       Alert.alert('PDF Not Ready', 'Please wait for PDF generation to complete.');
     }
   };
 
-  const handleViewPdf = () => {
-    if (pdfUri) {
-      // For now, open in external app. In the future, we can use react-native-pdf
-      Linking.openURL(pdfUri).catch((error) => {
+  const handleViewPdf = async () => {
+    if (pdfUri && invoice) {
+      try {
+        const fileName = `Invoice_${invoice.number}.pdf`;
+        
+        // Use Share API to open PDF - this will show options to open in PDF viewers
+        await Share.share({
+          url: pdfUri,
+          title: fileName,
+          message: `View Invoice ${invoice.number}`,
+        });
+      } catch (error) {
         console.error('Failed to open PDF:', error);
         Alert.alert('Error', 'Unable to open PDF. Please try again.');
-      });
+      }
     } else {
       Alert.alert('PDF Not Ready', 'Please wait for PDF generation to complete.');
     }

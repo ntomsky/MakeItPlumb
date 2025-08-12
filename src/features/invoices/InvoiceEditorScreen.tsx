@@ -13,10 +13,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
-import { Address } from '../../types/domain';
+import { CustomerDropdown } from '../../components/CustomerDropdown';
+import { Address, Customer } from '../../types/domain';
 import { RootState } from '../../store/store';
 import { incrementInvoiceCounter } from '../../store/settings.slice';
-import { addInvoice } from './invoices.slice';
+import { addInvoice, updateInvoice } from './invoices.slice';
 import { InvoiceFormData, InvoiceEditorParams } from './types';
 import { invoiceEditorStyles as styles } from './InvoiceEditorScreen.styles';
 import {
@@ -24,6 +25,8 @@ import {
   calculateTotals,
   validateInvoiceForm,
   createInvoiceFromForm,
+  createFormDataFromInvoice,
+  generateUUID,
 } from './utils';
 
 type RootStackParamList = {
@@ -40,18 +43,70 @@ export const InvoiceEditorScreen: React.FC = () => {
   
   const businessProfile = useSelector((state: RootState) => state.settings.businessProfile);
   const invoiceCounter = useSelector((state: RootState) => state.settings.invoiceCounter);
+  const customers = useSelector((state: RootState) => state.customers.customers);
+  const invoices = useSelector((state: RootState) => state.invoices.invoices);
   
   const intentResult = route.params?.intentResult;
+  const invoiceId = route.params?.invoiceId;
   const isFromVoice = !!intentResult;
+  const isEditMode = !!invoiceId;
   
-  const [formData, setFormData] = React.useState<InvoiceFormData>(() => 
-    getInitialFormData(intentResult, businessProfile.defaultTerms)
+  // Find existing invoice if editing
+  const existingInvoice = isEditMode ? invoices.find(inv => inv.id === invoiceId) : undefined;
+  const existingCustomer = existingInvoice ? customers.find(c => c.id === existingInvoice.customerId) : undefined;
+  
+  const [formData, setFormData] = React.useState<InvoiceFormData>(() => {
+    if (isEditMode && existingInvoice) {
+      return createFormDataFromInvoice(existingInvoice, existingCustomer, businessProfile.defaultTerms);
+    }
+    return getInitialFormData(intentResult, businessProfile.defaultTerms);
+  });
+  
+  const [selectedCustomer, setSelectedCustomer] = React.useState<Customer | null>(
+    isEditMode ? existingCustomer || null : null
+  );
+  const [customerSearchValue, setCustomerSearchValue] = React.useState(
+    isEditMode ? (existingCustomer?.name || '') : (formData.customerName || '')
   );
 
   // Reset form data when route params change
   React.useEffect(() => {
-    setFormData(getInitialFormData(intentResult, businessProfile.defaultTerms));
-  }, [intentResult, businessProfile.defaultTerms]);
+    if (isEditMode && existingInvoice) {
+      // Editing existing invoice
+      const formDataFromInvoice = createFormDataFromInvoice(existingInvoice, existingCustomer, businessProfile.defaultTerms);
+      setFormData(formDataFromInvoice);
+      setSelectedCustomer(existingCustomer || null);
+      setCustomerSearchValue(existingCustomer?.name || '');
+    } else {
+      // Creating new invoice
+      setFormData(getInitialFormData(intentResult, businessProfile.defaultTerms));
+      
+      // If there's a matched customer from voice input, set it
+      if (intentResult?.result?.matchedCustomer) {
+        const matchedCustomer = intentResult.result.matchedCustomer;
+        setSelectedCustomer(matchedCustomer);
+        setCustomerSearchValue(matchedCustomer.name);
+        
+        // Pre-fill form with matched customer data
+        setFormData(prev => ({
+          ...prev,
+          customerName: matchedCustomer.name,
+          customerPhone: matchedCustomer.phone || '',
+          customerEmail: matchedCustomer.email || '',
+          serviceAddress: matchedCustomer.serviceAddress ? {
+            line1: matchedCustomer.serviceAddress.line1,
+            line2: matchedCustomer.serviceAddress.line2 || '',
+            city: matchedCustomer.serviceAddress.city,
+            state: matchedCustomer.serviceAddress.state,
+            zip: matchedCustomer.serviceAddress.zip,
+          } : prev.serviceAddress,
+        }));
+      } else if (intentResult?.result?.entities?.customer?.name) {
+        // Set the customer name from voice but don't select a customer
+        setCustomerSearchValue(intentResult.result.entities.customer.name);
+      }
+    }
+  }, [intentResult, businessProfile.defaultTerms, isEditMode, existingInvoice, existingCustomer]);
 
   // Update form fields
   const updateField = (field: keyof Omit<InvoiceFormData, 'serviceAddress' | 'items'>, value: string) => {
@@ -66,6 +121,51 @@ export const InvoiceEditorScreen: React.FC = () => {
         [field]: value,
       },
     }));
+  };
+
+  // Customer selection handlers
+  const handleCustomerSelect = (customer: Customer | null) => {
+    setSelectedCustomer(customer);
+    
+    if (customer) {
+      // Pre-fill form with customer data
+      setFormData(prev => ({
+        ...prev,
+        customerName: customer.name,
+        customerPhone: customer.phone || '',
+        customerEmail: customer.email || '',
+        serviceAddress: customer.serviceAddress ? {
+          line1: customer.serviceAddress.line1,
+          line2: customer.serviceAddress.line2 || '',
+          city: customer.serviceAddress.city,
+          state: customer.serviceAddress.state,
+          zip: customer.serviceAddress.zip,
+        } : prev.serviceAddress,
+      }));
+      setCustomerSearchValue(customer.name);
+    } else {
+      // Clear customer-related fields but keep manually entered data
+      setFormData(prev => ({
+        ...prev,
+        customerName: customerSearchValue,
+        // Don't clear phone/email if user typed them manually
+      }));
+    }
+  };
+
+  const handleCustomerSearchChange = (value: string) => {
+    setCustomerSearchValue(value);
+    
+    // Update form data with search value
+    setFormData(prev => ({
+      ...prev,
+      customerName: value,
+    }));
+
+    // Clear selected customer if search changed
+    if (selectedCustomer && value !== selectedCustomer.name) {
+      setSelectedCustomer(null);
+    }
   };
 
   const updateLineItem = (index: number, field: string, value: string | boolean) => {
@@ -105,6 +205,12 @@ export const InvoiceEditorScreen: React.FC = () => {
 
   // Save invoice
   const handleSave = () => {
+    // Enhanced validation to ensure customer is properly selected
+    if (!selectedCustomer && !customerSearchValue.trim()) {
+      Alert.alert('Customer Required', 'Please select a customer or enter a customer name before saving the invoice.');
+      return;
+    }
+
     const validationError = validateInvoiceForm(formData);
     if (validationError) {
       Alert.alert('Validation Error', validationError);
@@ -112,26 +218,60 @@ export const InvoiceEditorScreen: React.FC = () => {
     }
 
     try {
-      // Create invoice object
-      const invoice = createInvoiceFromForm(formData, invoiceCounter, totals);
+      if (isEditMode && existingInvoice) {
+        // Update existing invoice
+        const updatedInvoice = {
+          ...existingInvoice,
+          customerId: selectedCustomer?.id || existingInvoice.customerId,
+          items: formData.items.map(item => ({
+            id: item.id.startsWith('temp-') ? generateUUID() : item.id,
+            description: item.description,
+            qty: parseFloat(item.qty) || 1,
+            unitPrice: parseFloat(item.unitPrice) || 0,
+            taxable: item.taxable,
+            kind: item.kind,
+          })),
+          summary: {
+            subTotal: totals.subtotal,
+            discount: existingInvoice.summary.discount,
+            taxRate: businessProfile.defaultTaxRate,
+            tax: totals.tax,
+            total: totals.total,
+          },
+          terms: formData.terms,
+          dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
+          notes: formData.notes,
+          updatedAt: new Date().toISOString(),
+        };
 
-      // Save to invoices slice
-      dispatch(addInvoice(invoice));
-      
-      // Increment counter
-      dispatch(incrementInvoiceCounter());
-      
-      Alert.alert('Success', 'Invoice saved successfully!', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
-      
+        dispatch(updateInvoice(updatedInvoice));
+        Alert.alert('Success', 'Invoice updated successfully!', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        // Create new invoice
+        const invoice = createInvoiceFromForm(formData, invoiceCounter, totals);
+        
+        // Use selected customer ID if available
+        if (selectedCustomer) {
+          invoice.customerId = selectedCustomer.id;
+        }
+
+        dispatch(addInvoice(invoice));
+        dispatch(incrementInvoiceCounter());
+        
+        Alert.alert('Success', 'Invoice created successfully!', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to save invoice. Please try again.');
+      Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'create'} invoice. Please try again.`);
     }
   };
 
   React.useLayoutEffect(() => {
     const getTitle = () => {
+      if (isEditMode) return 'Edit Invoice';
       if (isFromVoice) return 'Create Invoice (Voice)';
       return 'Create Invoice';
     };
@@ -140,14 +280,14 @@ export const InvoiceEditorScreen: React.FC = () => {
       title: getTitle(),
       headerRight: () => (
         <Button
-          title="Save"
+          title={isEditMode ? "Update" : "Save"}
           onPress={handleSave}
           variant="primary"
           size="small"
         />
       ),
     });
-  }, [navigation, isFromVoice, handleSave]);
+  }, [navigation, isFromVoice, isEditMode, handleSave]);
 
   return (
     <KeyboardAvoidingView 
@@ -170,6 +310,24 @@ export const InvoiceEditorScreen: React.FC = () => {
                 "{intentResult.result.rawTranscript}"
               </Text>
             )}
+            {intentResult?.result?.matchedCustomer && (
+              <Text style={styles.voiceMatchText}>
+                ✅ Customer matched: {intentResult.result.matchedCustomer.name} 
+                ({Math.round((intentResult.result.customerMatchConfidence || 0) * 100)}% confidence)
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* Edit Mode Indicator */}
+        {isEditMode && existingInvoice && (
+          <View style={styles.editIndicator}>
+            <Text style={styles.editIndicatorText}>
+              ✏️ Editing Invoice {existingInvoice.number}
+            </Text>
+            <Text style={styles.editSubtext}>
+              Created: {new Date(existingInvoice.createdAt).toLocaleDateString()}
+            </Text>
           </View>
         )}
         
@@ -182,18 +340,23 @@ export const InvoiceEditorScreen: React.FC = () => {
           {businessProfile.email && (
             <Text style={styles.companyInfo}>✉️ {businessProfile.email}</Text>
           )}
-          <Text style={styles.invoiceTitle}>INVOICE #{invoiceCounter.toString().padStart(3, '0')}</Text>
+          <Text style={styles.invoiceTitle}>
+            INVOICE {isEditMode && existingInvoice ? existingInvoice.number : `#${invoiceCounter.toString().padStart(3, '0')}`}
+          </Text>
         </View>
 
         {/* Customer Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Bill To</Text>
           
-          <TextField
-            label="Customer Name *"
-            value={formData.customerName}
-            onChangeText={(value: string) => updateField('customerName', value)}
-            placeholder="Enter customer name"
+          <CustomerDropdown
+            label="Customer *"
+            selectedCustomer={selectedCustomer}
+            customers={customers}
+            onSelectCustomer={handleCustomerSelect}
+            searchValue={customerSearchValue}
+            onSearchChange={handleCustomerSearchChange}
+            placeholder="Search or enter customer name"
           />
           
           <TextField
@@ -307,6 +470,13 @@ export const InvoiceEditorScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Invoice Details</Text>
           
           <TextField
+            label="Due Date"
+            value={formData.dueDate}
+            onChangeText={(value: string) => updateField('dueDate', value)}
+            placeholder="YYYY-MM-DD"
+          />
+          
+          <TextField
             label="Terms"
             value={formData.terms}
             onChangeText={(value: string) => updateField('terms', value)}
@@ -349,7 +519,7 @@ export const InvoiceEditorScreen: React.FC = () => {
           />
           
           <Button
-            title="Save Invoice"
+            title={isEditMode ? "Update Invoice" : "Save Invoice"}
             onPress={handleSave}
             variant="primary"
             style={styles.actionButton}

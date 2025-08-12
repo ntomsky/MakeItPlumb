@@ -54,6 +54,7 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
 }) => {
   const dispatch = useDispatch();
   const voiceState = useSelector(selectVoiceState);
+  const customers = useSelector((state: any) => state.customers.customers);
   
   const pulseAnimation = React.useRef(new Animated.Value(1)).current;
   const waveAnimation = React.useRef(new Animated.Value(0)).current;
@@ -107,7 +108,7 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
       dispatch(startProcessing());
       
       // Use VoiceParsingService (single entry point) with progressive updates
-      const intentResult = await VoiceParsingService.parseTranscript(transcript, dispatch);
+      const intentResult = await VoiceParsingService.parseTranscript(transcript, dispatch, customers);
       
       // Store the result in Redux
       dispatch(setParsedResult(intentResult));

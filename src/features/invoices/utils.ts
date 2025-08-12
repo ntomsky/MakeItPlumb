@@ -1,4 +1,4 @@
-import { Invoice, UUID, LineItem } from '../../types/domain';
+import { Invoice, UUID, LineItem, Customer } from '../../types/domain';
 import { InvoiceFormData, InvoiceTotals } from './types';
 import { VoiceParsingResult } from '../../types/voice-intent';
 
@@ -10,11 +10,46 @@ export const generateUUID = (): UUID => {
   });
 };
 
+export const createFormDataFromInvoice = (
+  invoice: Invoice,
+  customer: Customer | undefined,
+  defaultTerms: string = 'Net 30'
+): InvoiceFormData => {
+  return {
+    customerName: customer?.name || '',
+    customerPhone: customer?.phone || '',
+    customerEmail: customer?.email || '',
+    serviceAddress: customer?.serviceAddress ? {
+      line1: customer.serviceAddress.line1,
+      line2: customer.serviceAddress.line2 || '',
+      city: customer.serviceAddress.city,
+      state: customer.serviceAddress.state,
+      zip: customer.serviceAddress.zip,
+    } : {
+      line1: '',
+      line2: '',
+      city: '',
+      state: '',
+      zip: '',
+    },
+    dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '',
+    terms: invoice.terms || defaultTerms,
+    notes: invoice.notes || '',
+    items: invoice.items.map((item, index) => ({
+      id: item.id || `temp-${index}`,
+      description: item.description,
+      qty: item.qty.toString(),
+      unitPrice: item.unitPrice.toString(),
+      taxable: item.taxable,
+      kind: item.kind || 'labor' as 'material' | 'labor'
+    })),
+  };
+};
+
 export const getInitialFormData = (
   intentResult?: VoiceParsingResult,
   defaultTerms: string = 'Net 30'
 ): InvoiceFormData => {
-  // If creating from voice input, pre-fill with parsed data
   if (intentResult?.result.entities) {
     const { customer, address, items } = intentResult.result.entities;
     

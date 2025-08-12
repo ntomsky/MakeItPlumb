@@ -6,7 +6,11 @@ export class VoiceParsingService {
    * Main entry point: parse transcript into structured intent result
    * SINGLE SERVICE FOR ALL VOICE PARSING NEEDS
    */
-  static async parseTranscript(transcript: string, dispatch?: any): Promise<VoiceParsingResult> {
+  static async parseTranscript(
+    transcript: string, 
+    dispatch?: any, 
+    existingCustomers?: any[]
+  ): Promise<VoiceParsingResult> {
     if (!transcript?.trim()) {
       return this.createErrorResult('Empty transcript provided');
     }
@@ -22,7 +26,7 @@ export class VoiceParsingService {
       if (dispatch) {
         dispatch({ type: 'voice/setProcessingStage', payload: { stage: 'enhancing', details: 'Building enhanced prompt with hints...' } });
       }
-      const intentResult = await this.parseWithClaude(transcript, heuristics, dispatch);
+      const intentResult = await this.parseWithClaude(transcript, heuristics, dispatch, existingCustomers);
       
       // Step 3: Validate and determine confidence level
       if (dispatch) {
@@ -129,14 +133,19 @@ export class VoiceParsingService {
   /**
    * Parse with Claude using heuristic hints
    */
-  private static async parseWithClaude(transcript: string, heuristics: any, dispatch?: any): Promise<IntentResult> {
+  private static async parseWithClaude(
+    transcript: string, 
+    heuristics: any, 
+    dispatch?: any, 
+    existingCustomers?: any[]
+  ): Promise<IntentResult> {
     const prompt = this.buildIntentPrompt(transcript, heuristics);
     
     if (dispatch) {
       dispatch({ type: 'voice/setProcessingStage', payload: { stage: 'parsing', details: 'Sending request to Claude AI...' } });
     }
     
-    const response = await ClaudeParseService.parseVoiceTranscript(prompt);
+    const response = await ClaudeParseService.parseVoiceTranscript(prompt, existingCustomers);
     
     if (!response.success) {
       throw new Error(response.error || 'Claude parsing failed');
@@ -149,15 +158,25 @@ export class VoiceParsingService {
     // Convert Claude's response to IntentResult format
     const data = response.data!;
     
+    // Use matched customer info if available
+    const customerInfo = response.matchedCustomer ? {
+      name: response.matchedCustomer.name,
+      phone: response.matchedCustomer.phone,
+      email: response.matchedCustomer.email,
+      isMatched: true,
+      matchConfidence: response.customerConfidence
+    } : data.customer?.name ? {
+      name: data.customer.name,
+      phone: data.customer.phone || heuristics.phones[0] || undefined,
+      email: data.customer.email || heuristics.emails[0] || undefined,
+      isMatched: false
+    } : undefined;
+    
     return {
       intent: this.determineIntent(data.docType, heuristics),
       confidence: 0.8, // Will be recalculated
       entities: {
-        customer: data.customer?.name ? {
-          name: data.customer.name,
-          phone: data.customer.phone || heuristics.phones[0] || undefined,
-          email: data.customer.email || heuristics.emails[0] || undefined
-        } : undefined,
+        customer: customerInfo,
         address: data.address?.line1 ? data.address : undefined,
         items: data.items?.map(item => ({
           qty: item.qty || 1,
@@ -173,7 +192,9 @@ export class VoiceParsingService {
       missing: [], // Will be calculated
       normalizedText: response.rawResponse,
       rawTranscript: transcript,
-      processingMethod: 'llm'
+      processingMethod: 'llm',
+      matchedCustomer: response.matchedCustomer,
+      customerMatchConfidence: response.customerConfidence
     };
   }
 

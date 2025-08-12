@@ -32,6 +32,31 @@ export const invoiceEditorStyles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
+  editIndicator: {
+    backgroundColor: theme.colors.warning + '15',
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.warning,
+  },
+  editIndicatorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.warning,
+    marginBottom: theme.spacing.xs,
+  },
+  editSubtext: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  voiceMatchText: {
+    fontSize: 12,
+    color: theme.colors.success,
+    fontWeight: '600',
+    marginTop: theme.spacing.xs,
+  },
   companyHeader: {
     alignItems: 'center',
     paddingVertical: theme.spacing.lg,

@@ -4,7 +4,13 @@ export type IntentResult = {
   intent: IntentType;
   confidence: number;              // 0..1 from LLM
   entities: {
-    customer?: { name?: string; phone?: string; email?: string };
+    customer?: { 
+      name?: string; 
+      phone?: string; 
+      email?: string; 
+      isMatched?: boolean;
+      matchConfidence?: number;
+    };
     address?: { line1?: string; line2?: string; city?: string; state?: string; zip?: string };
     items?: Array<{ 
       qty?: number; 
@@ -23,6 +29,8 @@ export type IntentResult = {
   normalizedText?: string;         // Claude's cleaned version for debugging
   rawTranscript?: string;          // Original voice input
   processingMethod?: 'llm' | 'heuristic' | 'hybrid';
+  matchedCustomer?: any;           // Full customer object if matched
+  customerMatchConfidence?: number; // Confidence in customer match
 };
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';

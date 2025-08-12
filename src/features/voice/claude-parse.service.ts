@@ -1,12 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AIService } from '../../config/ai-setup';
-import { DraftIntake, LineItem } from '../../types/domain';
+import { DraftIntake, LineItem, Customer } from '../../types/domain';
+import { CustomerMatchingService } from '../../services/customer-matching.service';
 
 export interface ClaudeParseResult {
   success: boolean;
   data?: DraftIntake;
   error?: string;
   rawResponse?: string;
+  matchedCustomer?: Customer;
+  customerConfidence?: number;
 }
 
 export class ClaudeParseService {
@@ -22,7 +25,10 @@ export class ClaudeParseService {
   /**
    * Parse voice transcript into structured plumbing invoice/quote data using Claude 3.5
    */
-  static async parseVoiceTranscript(transcript: string): Promise<ClaudeParseResult> {
+  static async parseVoiceTranscript(
+    transcript: string, 
+    existingCustomers?: Customer[]
+  ): Promise<ClaudeParseResult> {
     try {
       const prompt = this.buildParsingPrompt(transcript);
       
@@ -43,10 +49,37 @@ export class ClaudeParseService {
       const rawResponse = response.content[0].text;
       const parsedData = this.extractStructuredData(rawResponse);
 
+      // Attempt to match customer if customers provided
+      let matchedCustomer: Customer | undefined;
+      let customerConfidence: number | undefined;
+
+      if (existingCustomers && parsedData.customer?.name) {
+        const match = CustomerMatchingService.findBestMatch(
+          parsedData.customer.name,
+          existingCustomers,
+          parsedData.customer.phone,
+          parsedData.customer.email
+        );
+
+        if (match && match.confidence > 0.5) { // Only auto-match with high confidence
+          matchedCustomer = match.customer;
+          customerConfidence = match.confidence;
+          
+          // Update parsed data with matched customer info
+          parsedData.customer = {
+            name: match.customer.name,
+            phone: match.customer.phone || parsedData.customer.phone,
+            email: match.customer.email || parsedData.customer.email,
+          };
+        }
+      }
+
       return {
         success: true,
         data: parsedData,
-        rawResponse
+        rawResponse,
+        matchedCustomer,
+        customerConfidence
       };
 
     } catch (error) {
