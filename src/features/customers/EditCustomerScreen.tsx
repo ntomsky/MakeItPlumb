@@ -17,9 +17,10 @@ import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
 import { Customer, Address, UUID } from '../../types/domain';
 import { addCustomer, updateCustomer } from './customers.slice';
+import { VoiceParsingResult } from '../../types/voice-intent';
 
 type RootStackParamList = {
-  EditCustomer: { customer?: Customer } | undefined;
+  EditCustomer: { customer?: Customer; intentResult?: VoiceParsingResult } | undefined;
 };
 
 type EditCustomerScreenRouteProp = RouteProp<RootStackParamList, 'EditCustomer'>;
@@ -52,33 +53,77 @@ export const EditCustomerScreen: React.FC = () => {
   const route = useRoute<EditCustomerScreenRouteProp>();
   
   const existingCustomer = route.params?.customer;
+  const intentResult = route.params?.intentResult;
   const isEditing = !!existingCustomer;
   
+  // Helper function to extract data from voice parsing result
+  const getInitialFormData = (): CustomerFormData => {
+    // If editing existing customer, use existing data
+    if (existingCustomer) {
+      return {
+        name: existingCustomer.name || '',
+        phone: existingCustomer.phone || '',
+        email: existingCustomer.email || '',
+        notes: existingCustomer.notes || '',
+        serviceAddress: {
+          line1: existingCustomer.serviceAddress?.line1 || '',
+          line2: existingCustomer.serviceAddress?.line2 || '',
+          city: existingCustomer.serviceAddress?.city || '',
+          state: existingCustomer.serviceAddress?.state || '',
+          zip: existingCustomer.serviceAddress?.zip || '',
+        },
+        billingAddress: {
+          line1: existingCustomer.billingAddress?.line1 || '',
+          line2: existingCustomer.billingAddress?.line2 || '',
+          city: existingCustomer.billingAddress?.city || '',
+          state: existingCustomer.billingAddress?.state || '',
+          zip: existingCustomer.billingAddress?.zip || '',
+        },
+      };
+    }
+    
+    // If creating new customer from voice input, pre-fill with parsed data
+    if (intentResult?.result.entities) {
+      const { customer, address } = intentResult.result.entities;
+      return {
+        name: customer?.name || '',
+        phone: customer?.phone || '',
+        email: customer?.email || '',
+        notes: intentResult.result.rawTranscript ? `Voice input: "${intentResult.result.rawTranscript}"` : '',
+        serviceAddress: {
+          line1: address?.line1 || '',
+          line2: address?.line2 || '',
+          city: address?.city || '',
+          state: address?.state || '',
+          zip: address?.zip || '',
+        },
+        billingAddress: {
+          line1: address?.line1 || '',
+          line2: address?.line2 || '',
+          city: address?.city || '',
+          state: address?.state || '',
+          zip: address?.zip || '',
+        },
+      };
+    }
+    
+    // Default empty form
+    return {
+      name: '',
+      phone: '',
+      email: '',
+      notes: '',
+      serviceAddress: { line1: '', line2: '', city: '', state: '', zip: '' },
+      billingAddress: { line1: '', line2: '', city: '', state: '', zip: '' },
+    };
+  };
+  
   // Form state
-  const [formData, setFormData] = React.useState<CustomerFormData>({
-    name: existingCustomer?.name || '',
-    phone: existingCustomer?.phone || '',
-    email: existingCustomer?.email || '',
-    notes: existingCustomer?.notes || '',
-    serviceAddress: {
-      line1: existingCustomer?.serviceAddress?.line1 || '',
-      line2: existingCustomer?.serviceAddress?.line2 || '',
-      city: existingCustomer?.serviceAddress?.city || '',
-      state: existingCustomer?.serviceAddress?.state || '',
-      zip: existingCustomer?.serviceAddress?.zip || '',
-    },
-    billingAddress: {
-      line1: existingCustomer?.billingAddress?.line1 || '',
-      line2: existingCustomer?.billingAddress?.line2 || '',
-      city: existingCustomer?.billingAddress?.city || '',
-      state: existingCustomer?.billingAddress?.state || '',
-      zip: existingCustomer?.billingAddress?.zip || '',
-    },
-  });
+  const [formData, setFormData] = React.useState<CustomerFormData>(getInitialFormData());
 
   const [useSameAddress, setUseSameAddress] = React.useState(
     !existingCustomer || 
-    JSON.stringify(existingCustomer.serviceAddress) === JSON.stringify(existingCustomer.billingAddress)
+    JSON.stringify(existingCustomer?.serviceAddress) === JSON.stringify(existingCustomer?.billingAddress)
   );
 
   // Update form data
@@ -204,8 +249,14 @@ export const EditCustomerScreen: React.FC = () => {
   };
 
   React.useLayoutEffect(() => {
+    const getTitle = () => {
+      if (isEditing) return 'Edit Customer';
+      if (intentResult) return 'Add Customer (Voice)';
+      return 'Add Customer';
+    };
+    
     navigation.setOptions({
-      title: isEditing ? 'Edit Customer' : 'Add Customer',
+      title: getTitle(),
       headerRight: () => (
         <Button
           title="Save"
@@ -215,7 +266,7 @@ export const EditCustomerScreen: React.FC = () => {
         />
       ),
     });
-  }, [navigation, isEditing, handleSave]);
+  }, [navigation, isEditing, intentResult, handleSave]);
 
   return (
     <KeyboardAvoidingView 
@@ -227,6 +278,20 @@ export const EditCustomerScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Voice Input Indicator */}
+        {intentResult && (
+          <View style={styles.voiceIndicator}>
+            <Text style={styles.voiceIndicatorText}>
+              🎤 Pre-filled from voice input
+            </Text>
+            {intentResult.result.rawTranscript && (
+              <Text style={styles.voiceTranscript}>
+                "{intentResult.result.rawTranscript}"
+              </Text>
+            )}
+          </View>
+        )}
+        
         {/* Customer Information */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Customer Information</Text>
@@ -441,5 +506,24 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: theme.colors.textSecondary,
+  },
+  voiceIndicator: {
+    backgroundColor: theme.colors.primary + '15', // 15% opacity
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
+  },
+  voiceIndicatorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
+  },
+  voiceTranscript: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
   },
 });

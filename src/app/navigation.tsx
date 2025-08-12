@@ -27,6 +27,8 @@ export type RootTabParamList = {
   InvoicesTab: undefined;
 };
 
+import { VoiceParsingResult } from '../types/voice-intent';
+
 export type HomeStackParamList = {
   Home: undefined;
   Settings: undefined;
@@ -36,18 +38,18 @@ export type HomeStackParamList = {
 export type CustomersStackParamList = {
   CustomersList: undefined;
   CustomerDetail: { customerId: string };
-  EditCustomer: { customerId?: string };
+  EditCustomer: { customerId?: string; intentResult?: VoiceParsingResult };
 };
 
 export type QuotesStackParamList = {
   QuotesList: undefined;
-  QuoteEditor: { quoteId?: string; customerId?: string };
+  QuoteEditor: { quoteId?: string; customerId?: string; intentResult?: VoiceParsingResult };
   QuoteDetail: { quoteId: string };
 };
 
 export type InvoicesStackParamList = {
   InvoicesList: undefined;
-  InvoiceEditor: { invoiceId?: string; customerId?: string; quoteId?: string };
+  InvoiceEditor: { invoiceId?: string; customerId?: string; quoteId?: string; intentResult?: VoiceParsingResult };
   InvoiceDetail: { invoiceId: string };
 };
 
