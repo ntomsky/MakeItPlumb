@@ -126,7 +126,7 @@ function QuotesStackNavigator() {
 
 function InvoicesStackNavigator() {
   return (
-    <InvoicesStack.Navigator>
+    <InvoicesStack.Navigator initialRouteName="InvoicesList">
       <InvoicesStack.Screen 
         name="InvoicesList" 
         component={InvoicesListScreen}

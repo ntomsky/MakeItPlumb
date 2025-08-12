@@ -190,7 +190,32 @@ export const EditCustomerScreen: React.FC = () => {
     };
 
     setFormData(resetFormData());
+    
+    // Also reset the same address checkbox when starting fresh
+    if (!existingCustomer) {
+      setUseSameAddress(true);
+    }
   }, [existingCustomer?.id, intentResult]); // Re-run when customer ID or entire intent changes
+
+  // Use navigation focus event to reset form when adding a new customer
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Only reset if we're adding a new customer (not editing and no voice input)
+      if (!existingCustomer && !intentResult) {
+        setFormData({
+          name: '',
+          phone: '',
+          email: '',
+          notes: '',
+          serviceAddress: { line1: '', line2: '', city: '', state: '', zip: '' },
+          billingAddress: { line1: '', line2: '', city: '', state: '', zip: '' },
+        });
+        setUseSameAddress(true);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, existingCustomer, intentResult]);
 
   // Update form data
   const updateField = (field: keyof CustomerFormData, value: string) => {
