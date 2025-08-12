@@ -15,6 +15,7 @@ import { theme } from '../../app/theme';
 import { Button } from '../../components/Button';
 import { StatusChip } from '../../components/StatusChip';
 import { VoiceCaptureSheet } from '../voice/VoiceCaptureSheet';
+import { VoiceParsingResult } from '../../types/voice-intent';
 import { selectRecentQuotes } from '../quotes/quotes.slice';
 import { selectRecentInvoices } from '../invoices/invoices.slice';
 import { selectCustomers } from '../customers/customers.slice';
@@ -36,19 +37,63 @@ export const HomeScreen: React.FC = () => {
     setShowVoiceCapture(false);
   };
 
-  const handleDraftReady = (draft: any) => {
+  const handleIntentReady = (result: VoiceParsingResult) => {
     setShowVoiceCapture(false);
     
-    // Navigate to appropriate editor based on draft type
-    if (draft.docType === 'quote') {
+    // Handle different confidence levels
+    switch (result.actionRequired) {
+      case 'confirm':
+        // High confidence - show confirmation dialog
+        Alert.alert(
+          'Confirm Action',
+          `I understood: ${result.result.intent.replace('_', ' ')} for ${result.result.entities.customer?.name || 'customer'}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Confirm', onPress: () => navigateToEditor(result) }
+          ]
+        );
+        break;
+        
+      case 'fix_missing':
+        // Medium confidence - show what's missing
+        Alert.alert(
+          'Missing Information',
+          `I need help with: ${result.result.missing.join(', ')}.\n\nSuggestions: ${result.suggestions?.join(', ')}`,
+          [
+            { text: 'Try Again', style: 'cancel' },
+            { text: 'Continue Anyway', onPress: () => navigateToEditor(result) }
+          ]
+        );
+        break;
+        
+      case 'try_again':
+        // Low confidence - ask to try again
+        Alert.alert(
+          'Please Try Again',
+          result.suggestions?.join('\n') || 'I didn\'t understand. Please try speaking again.',
+          [{ text: 'OK' }]
+        );
+        break;
+    }
+  };
+
+  const navigateToEditor = (result: VoiceParsingResult) => {
+    const intent = result.result.intent;
+    
+    if (intent === 'create_quote') {
       navigation.navigate('QuotesTab', { 
         screen: 'QuoteEditor',
-        params: { draft }
+        params: { intentResult: result }
       });
-    } else if (draft.docType === 'invoice') {
+    } else if (intent === 'create_invoice') {
       navigation.navigate('InvoicesTab', { 
         screen: 'InvoiceEditor',
-        params: { draft }
+        params: { intentResult: result }
+      });
+    } else if (intent === 'add_customer') {
+      navigation.navigate('CustomersTab', {
+        screen: 'EditCustomer',
+        params: { intentResult: result }
       });
     }
   };
@@ -207,7 +252,7 @@ export const HomeScreen: React.FC = () => {
     <VoiceCaptureSheet
       visible={showVoiceCapture}
       onClose={handleVoiceCaptureClose}
-      onDraftReady={handleDraftReady}
+      onIntentReady={handleIntentReady}
     />
     </>
   );

@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { DraftIntake } from '../../types/domain';
+import { VoiceParsingResult } from '../../types/voice-intent';
 
 interface VoiceState {
   isRecording: boolean;
@@ -7,7 +8,7 @@ interface VoiceState {
   transcript: string;
   partialTranscript: string;
   error: string | null;
-  parsedDraft: DraftIntake | null;
+  parsedResult: VoiceParsingResult | null; // Changed from parsedDraft
 }
 
 const initialState: VoiceState = {
@@ -16,7 +17,7 @@ const initialState: VoiceState = {
   transcript: '',
   partialTranscript: '',
   error: null,
-  parsedDraft: null,
+  parsedResult: null, // Updated
 };
 
 const voiceSlice = createSlice({
@@ -28,7 +29,7 @@ const voiceSlice = createSlice({
       state.error = null;
       state.transcript = '';
       state.partialTranscript = '';
-      state.parsedDraft = null;
+      state.parsedResult = null; // Updated
     },
     stopRecording: (state) => {
       state.isRecording = false;
@@ -44,8 +45,8 @@ const voiceSlice = createSlice({
       state.isProcessing = true;
       state.error = null;
     },
-    setParsedDraft: (state, action: PayloadAction<DraftIntake>) => {
-      state.parsedDraft = action.payload;
+    setParsedResult: (state, action: PayloadAction<VoiceParsingResult>) => {
+      state.parsedResult = action.payload; // Updated
       state.isProcessing = false;
     },
     setError: (state, action: PayloadAction<string>) => {
@@ -65,7 +66,7 @@ export const {
   setPartialTranscript,
   setFinalTranscript,
   startProcessing,
-  setParsedDraft,
+  setParsedResult, // Updated
   setError,
   reset,
 } = voiceSlice.actions;
@@ -78,4 +79,4 @@ export const selectIsRecording = (state: { voice: VoiceState }) => state.voice.i
 export const selectIsProcessing = (state: { voice: VoiceState }) => state.voice.isProcessing;
 export const selectTranscript = (state: { voice: VoiceState }) => state.voice.transcript;
 export const selectPartialTranscript = (state: { voice: VoiceState }) => state.voice.partialTranscript;
-export const selectParsedDraft = (state: { voice: VoiceState }) => state.voice.parsedDraft;
+export const selectParsedResult = (state: { voice: VoiceState }) => state.voice.parsedResult; // Updated

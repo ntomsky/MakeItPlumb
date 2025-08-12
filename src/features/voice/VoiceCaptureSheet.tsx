@@ -19,24 +19,36 @@ import {
   setPartialTranscript,
   setFinalTranscript,
   startProcessing,
-  setParsedDraft,
+  setParsedResult, // Updated
   setError,
   reset,
   selectVoiceState,
 } from './voice.slice';
 import { sttService } from './stt.service';
-import { ParseService } from './parse.service';
+import { VoiceParsingService } from '../../services/voice-parsing.service';
+import { VoiceParsingResult } from '../../types/voice-intent';
+
+// Helper function to format intent names for display
+const formatIntentDisplay = (intent: string): string => {
+  const intentMap: Record<string, string> = {
+    'create_quote': 'Quote',
+    'create_invoice': 'Invoice',
+    'create_customer': 'Customer',
+    'schedule_job': 'Job',
+  };
+  return intentMap[intent] || intent.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
 
 interface VoiceCaptureSheetProps {
   visible: boolean;
   onClose: () => void;
-  onDraftReady: (draft: any) => void;
+  onIntentReady: (result: VoiceParsingResult) => void; // Updated to use VoiceParsingResult
 }
 
 export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
   visible,
   onClose,
-  onDraftReady,
+  onIntentReady, // Updated prop name
 }) => {
   const dispatch = useDispatch();
   const voiceState = useSelector(selectVoiceState);
@@ -91,10 +103,15 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
   const handleProcessTranscript = async (transcript: string) => {
     try {
       dispatch(startProcessing());
-      const draft = await ParseService.toDraft(transcript);
-      dispatch(setParsedDraft(draft));
+      
+      // Use VoiceParsingService (optimized)
+      const intentResult = await VoiceParsingService.parseTranscript(transcript);
+      
+      // Store the result in Redux
+      dispatch(setParsedResult(intentResult)); // Updated
+      
     } catch (error) {
-      console.error( error);
+      console.error('Voice processing error:', error);
       dispatch(setError('Failed to process voice input'));
     }
   };
@@ -170,8 +187,8 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
   };
 
   const handleUseDraft = () => {
-    if (voiceState.parsedDraft) {
-      onDraftReady(voiceState.parsedDraft);
+    if (voiceState.parsedResult) {
+      onIntentReady(voiceState.parsedResult); // Updated
       handleClose();
     }
   };
@@ -233,14 +250,14 @@ export const VoiceCaptureSheet: React.FC<VoiceCaptureSheetProps> = ({
       );
     }
     
-    if (voiceState.parsedDraft) {
+    if (voiceState.parsedResult) {
       return (
         <View style={styles.content}>
           <Icon name="check-circle" size={48} color={theme.colors.success} />
           <Text style={styles.successTitle}>Voice Processed!</Text>
           <Text style={styles.draftPreview}>
-            {voiceState.parsedDraft.docType === 'quote' ? 'Quote' : 'Invoice'} for{' '}
-            {voiceState.parsedDraft.customer?.name || 'Customer'}
+            {formatIntentDisplay(voiceState.parsedResult.result.intent)} for{' '}
+            {voiceState.parsedResult.result.entities.customer?.name || 'Customer'}
           </Text>
           <View style={styles.actions}>
             <Button title="Use Draft" onPress={handleUseDraft} />
