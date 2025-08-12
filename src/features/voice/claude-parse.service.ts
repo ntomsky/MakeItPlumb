@@ -98,13 +98,41 @@ REQUIRED JSON STRUCTURE:
   "notes": "string or null"
 }
 
+EXAMPLES OF SEPARATING MULTIPLE SERVICES:
+
+Input: "water heater and installation for $1200"
+Output items: [
+  {"description": "Water heater", "qty": 1, "unitPrice": 800, "taxable": true, "kind": "material"},
+  {"description": "Water heater installation", "qty": 1, "unitPrice": 400, "taxable": true, "kind": "labor"}
+]
+
+Input: "faucet replacement plus labor"
+Output items: [
+  {"description": "Kitchen faucet", "qty": 1, "unitPrice": 150, "taxable": true, "kind": "material"},
+  {"description": "Faucet installation labor", "qty": 2, "unitPrice": 75, "taxable": true, "kind": "labor"}
+]
+
+Input: "pipe repair and drain cleaning"
+Output items: [
+  {"description": "Pipe repair service", "qty": 1, "unitPrice": 200, "taxable": true, "kind": "labor"},
+  {"description": "Drain cleaning service", "qty": 1, "unitPrice": 150, "taxable": true, "kind": "labor"}
+]
+
 PARSING GUIDELINES:
 1. **Document Type**: Determine if this is a quote (estimate/proposal) or invoice (bill/payment request)
 2. **Customer Info**: Extract names, contact information
 3. **Address**: Property address where work is/was performed
 4. **Line Items**: Parse services, materials, labor with quantities and prices
+   - **IMPORTANT**: Separate multiple services mentioned together into individual line items
+   - Examples: "water heater and installation" → 2 items: "Water heater" + "Installation service"
+   - Examples: "pipe repair and cleaning" → 2 items: "Pipe repair" + "Drain cleaning service"
+   - Examples: "faucet replacement plus labor" → 2 items: "Faucet" + "Labor - faucet installation"
+   - Examples: "toilet repair with parts" → 2 items: "Toilet parts" + "Toilet repair labor"
+   - Examples: "snake drain and fix leak" → 2 items: "Drain cleaning/snaking" + "Leak repair"
+   - Look for connecting words: "and", "plus", "with", "including", "&", "also"
    - Common plumbing items: pipe fittings, fixtures, labor hours, drain cleaning, etc.
    - Be smart about units (e.g., "pipe" = feet, "faucet" = each, "labor" = hours)
+   - When labor/installation is mentioned with a product, create separate items for the product and the labor
 5. **Pricing**: Extract costs, discounts, tax rates
 6. **Notes**: Additional important information
 
@@ -113,6 +141,8 @@ PLUMBING CONTEXT:
 - Common materials: copper pipe, PVC pipe, fittings, valves, fixtures
 - Labor is usually charged hourly ($75-150/hour typical range)
 - Emergency calls often have higher rates
+
+**CRITICAL**: When you hear compound services like "X and Y" or "X plus Y", always create separate line items for each distinct service or product mentioned.
 
 Return ONLY the JSON structure, no additional text or explanation.`;
   }
