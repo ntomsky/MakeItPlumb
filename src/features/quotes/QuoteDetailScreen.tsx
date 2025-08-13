@@ -1,32 +1,36 @@
 import * as React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { theme } from '../../app/theme';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+
+import { DocumentDetailScreen } from '../../components/DocumentDetailScreen';
+import { RootState } from '../../store/store';
+import { QuotesStackParamList } from '../../app/navigation';
+import { Quote } from '../../types/domain';
+
+type QuoteDetailRouteProp = RouteProp<QuotesStackParamList, 'QuoteDetail'>;
 
 export const QuoteDetailScreen: React.FC = () => {
+  const route = useRoute<QuoteDetailRouteProp>();
+  const navigation = useNavigation();
+  const { quoteId } = route.params;
+
+  const quote = useSelector((state: RootState) =>
+    state.quotes.quotes.find((q: Quote) => q.id === quoteId)
+  );
+
+  const handleEdit = (documentId: string) => {
+    (navigation as any).navigate('QuoteEditor', { quoteId: documentId });
+  };
+
+  if (!quote) {
+    return null; // DocumentDetailScreen will handle the error state
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Quote Detail Screen</Text>
-      <Text style={styles.subtitle}>Coming soon...</Text>
-    </View>
+    <DocumentDetailScreen
+      document={quote}
+      documentType="Quote"
+      onEdit={handleEdit}
+    />
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-  },
-});
