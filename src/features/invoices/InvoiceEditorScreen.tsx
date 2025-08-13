@@ -52,8 +52,8 @@ export const InvoiceEditorScreen: React.FC = () => {
   const isEditMode = !!invoiceId;
   
   // Find existing invoice if editing
-  const existingInvoice = isEditMode ? invoices.find(inv => inv.id === invoiceId) : undefined;
-  const existingCustomer = existingInvoice ? customers.find(c => c.id === existingInvoice.customerId) : undefined;
+  const existingInvoice = isEditMode ? invoices.find((inv: { id: string; }) => inv.id === invoiceId) : undefined;
+  const existingCustomer = existingInvoice ? customers.find((c: { id: any; }) => c.id === existingInvoice.customerId) : undefined;
   
   const [formData, setFormData] = React.useState<InvoiceFormData>(() => {
     if (isEditMode && existingInvoice) {

@@ -102,7 +102,7 @@ function CustomersStackNavigator() {
 
 function QuotesStackNavigator() {
   return (
-    <QuotesStack.Navigator>
+    <QuotesStack.Navigator initialRouteName="QuotesList">
       <QuotesStack.Screen 
         name="QuotesList" 
         component={QuotesListScreen}
